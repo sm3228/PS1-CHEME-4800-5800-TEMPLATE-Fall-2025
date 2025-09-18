@@ -26,7 +26,6 @@ function build(modeltype::Type{MyOneDimensionalElementaryWolframRuleModel},
             return nothing; # Early return we cannot build the model, so return nothing
         end
     end
-
     # Checks: we have the required keys in the data NamedTuple, we should check that they are of the correct type
     # ...
 
@@ -40,9 +39,15 @@ function build(modeltype::Type{MyOneDimensionalElementaryWolframRuleModel},
     rule = Dict{Int,Int}(); # key: neighborhood state, value: resulting state
 
     # TODO: build the rule dictionary from the index, colors, and radius values in the data NamedTuple
+    number_of_states = colors^radius;
+    rule_digits = digits(index, base=colors, pad=num_combinations);
+    P = tuple(rule_digits)
     # TODO: Check out the `digits` function in Julia to help with this task
+    for(i, j) in zip(0:number_of_states-1, states)
+        rule[i] = j
+    end
     # TODO: Make sure to comment out the throw statement below once you implement this functionality
-    throw(ErrorException("The rule dictionary construction from the index, colors, and radius values has not been implemented yet."));
+    #throw(ErrorException("The rule dictionary construction from the index, colors, and radius values has not been implemented yet."));
     
     # set the data on the object
     model.index = index;
@@ -52,4 +57,11 @@ function build(modeltype::Type{MyOneDimensionalElementaryWolframRuleModel},
 
     # return
     return model;
-end
+end 
+
+
+
+
+
+
+
