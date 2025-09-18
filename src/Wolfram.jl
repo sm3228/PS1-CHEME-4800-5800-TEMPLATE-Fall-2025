@@ -18,6 +18,29 @@ function _simulate(algorithm::WolframDeterministicSimulation, rulemodel::MyOneDi
     frames[1] = frame; # set the initial frame -
     
     # TODO: implement the simulation run loop for the deterministic simulation here
+    for step in 2:steps
+    # Current frame reset
+    frame = similar(frame)
+    for i in 1:width
+        # Determine neighborhood state
+        neighborhood_states = []
+        for offset in -radius:radius
+            idx = mod1(i + offset, width) # Wrap-around boundary
+            push!(neighborhood_states, frames[step-1][1, idx])
+        end
+        
+        # Compute neighborhood integer index in base "colors"
+        neighborhood_index = 0
+        for (pos, state) in enumerate(reverse(neighborhood_states))
+            neighborhood_index += state * colors^(pos-1)
+        end
+        
+        # Apply rule to get next state
+        frame[1, i] = get(rule, neighborhood_index, 0)  # Default 0 if missing
+    end
+    frames[step] = copy(frame)
+end
+
     # TODO: Make sure to comment out the throw statement below once you implement this functionality
     throw(ErrorException("The simulation run loop for the deterministic simulation has not been implemented yet."));
     
@@ -50,6 +73,78 @@ function _simulate(algorithm::WolframStochasticSimulation, rulemodel::MyOneDimen
     frames[1] = frame; # set the initial frame
 
     # TODO: implement the simulation run loop for the stochastic simulation here
+    using Random
+for step in 2:steps
+    frame = similar(frame)
+    copyto!(frame, frames[step-1])
+    
+    n_moves = 0
+    moves_this_step = 0
+    
+    # Initialize queue with all cells - or refill from previous step if used
+    isempty(q) && foreach(i -> enqueue!(q, i), 1:width)
+    
+    while !isempty(q) && (n_moves < maxnumberofmoves || maxnumberofmoves === nothing)
+        cell = dequeue!(q)
+        
+        # Check cooldown
+        if cooldown[cell] > 0
+            cooldown[cell] -= 1
+            enqueue!(q, cell)  # Re-queue for later
+            continue
+        end
+        
+        # Determine neighborhood states
+        neighborhood_states = []
+        for offset in -radius:radius
+            idx = mod1(cell + offset, width)
+            push!(neighborhood_states, frame[1, idx])
+        end
+        
+        # Compute neighborhood index
+        neighborhood_index = 0
+        for (pos, state) in enumerate(reverse(neighborhood_states))
+            neighborhood_index += state * colors^(pos-1)
+        end
+        
+        current_state = frame[1, cell]
+        next_state = current_state
+        
+        if isnothing(parameters)
+            # Deterministic update using rule
+            next_state = get(rule, neighborhood_index, current_state)
+        else
+            # Stochastic update: probabilities from parameters, fallback deterministic
+            if haskey(parameters, neighborhood_index)
+                p = parameters[neighborhood_index]
+                next_state = rand() < p ? get(rule, neighborhood_index, current_state) : current_state
+            else
+                next_state = get(rule, neighborhood_index, current_state)
+            end
+        end
+        
+        # Update state if changed
+        if next_state != current_state
+            frame[1, cell] = next_state
+            cooldown[cell] = cooldown[cell] + cooldownlength  # Set cooldown timer
+            n_moves += 1
+            moves_this_step += 1
+        end
+        
+        # Re-queue neighbors for possible update
+        for offset in -radius:radius
+            idx = mod1(cell + offset, width)
+            enqueue!(q, idx)
+        end
+        
+        if maxnumberofmoves !== nothing && n_moves >= maxnumberofmoves
+            break
+        end
+    end
+    
+    frames[step] = copy(frame)
+end
+
     # TODO: Make sure to comment out the throw statement below once you implement this functionality
     throw(ErrorException("The simulation run loop for the stochastic simulation has not been implemented yet."));
     
